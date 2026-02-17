@@ -6,10 +6,10 @@ st.set_page_config(page_title="Policy Question Generator", layout="wide")
 
 st.title("Policy Question Generator")
 
-uploaded_file = st.file_uploader("Upload your policy question CSV file", type=["csv"])
+uploaded_file = st.file_uploader("Upload your policy question Excel file", type=["excel"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    df = pd.read_excel(uploaded_file)
 
     st.sidebar.header("User Selection")
 
