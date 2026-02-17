@@ -118,10 +118,13 @@ if st.session_state.quiz_started:
     
         st.write(question_data["Question"])
     
+        input_key = f"answer_input_{q_index}"
+
         user_answer = st.text_input(
             "Your Answer",
-            key="answer_input"
+            key=input_key
         )
+
     
         if st.button("Submit Answer"):
     
@@ -144,8 +147,6 @@ if st.session_state.quiz_started:
             })
     
             # Clear answer field
-            st.session_state.answer_input = ""
-    
             st.session_state.current_question += 1
             st.rerun()
     else:
@@ -174,4 +175,5 @@ if st.session_state.quiz_started:
 
     
     
+
 
