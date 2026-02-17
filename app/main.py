@@ -3,43 +3,41 @@ import pandas as pd
 import random
 from pathlib import Path
 
-st.set_page_config(page_title="Policy Question Generator", layout="wide")
+st.set_page_config(page_title="Policy Assessment", layout="wide")
 
-st.title("Policy Question Generator")
+st.title("Policy Knowledge Assessment")
 
-# ---------------------------
-# Load Excel from repository
-# ---------------------------
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "policy_questions.xlsx"
 
 @st.cache_data
 def load_data(path):
     return pd.read_excel(path)
 
-try:
-    df = load_data(DATA_PATH)
-except Exception as e:
-    st.error(f"Error loading Excel file: {e}")
-    st.stop()
+df = load_data(DATA_PATH)
 
-st.sidebar.header("User Selection")
+# ---------------------------
+# Sidebar Configuration
+# ---------------------------
+st.sidebar.header("User Profile")
 
 division = st.sidebar.selectbox(
-    "Select Your Division",
+    "Division",
     ["Patrol", "Emergency Management", "Support Services", "Dispatch", "Business Office"]
 )
 
 role = None
 if division == "Patrol":
-    role = st.sidebar.selectbox("Select Role", ["LEO", "CSO"])
+    role = st.sidebar.selectbox("Role", ["LEO", "CSO"])
 
 supervisor_status = st.sidebar.selectbox(
     "Supervisor Status",
     ["Supervisor", "Non-Supervisor"]
 )
 
+question_count = st.sidebar.slider("Number of Questions", 1, 20, 5)
+
 # ---------------------------
-# Filtering
+# Filtering Logic
 # ---------------------------
 def division_match(row_divisions):
     if pd.isna(row_divisions):
@@ -49,55 +47,73 @@ def division_match(row_divisions):
 
 filtered_df = df[df["Division"].apply(division_match)].copy()
 
-# Role filtering
 if role and "Role" in filtered_df.columns:
     filtered_df = filtered_df[
         (filtered_df["Role"].isna()) |
         (filtered_df["Role"] == role)
     ]
 
-# Supervisor weighting (60% increase)
 if "Function" in filtered_df.columns:
     filtered_df["weight"] = 1.0
-
     if supervisor_status == "Supervisor":
         filtered_df.loc[
             filtered_df["Function"] == "Supervisor",
             "weight"
         ] = 1.6
-
-    questions = filtered_df["Question"].tolist()
-    weights = filtered_df["weight"].tolist()
-
-    if questions:
-        selected_question = random.choices(
-            questions,
-            weights=weights,
-            k=1
-        )[0]
-    
-        st.subheader("Generated Question")
-        st.write(selected_question)
-    
-        # ---------------------------
-        # Answer Input Section
-        # ---------------------------
-        st.markdown("---")
-        st.subheader("Your Answer")
-    
-        user_answer = st.text_area(
-            "Type your response below:",
-            height=150
-        )
-    
-        if st.button("Submit Answer"):
-            if user_answer.strip() == "":
-                st.warning("Please enter a response before submitting.")
-            else:
-                st.success("Answer submitted successfully.")
-                st.write("**Recorded Response:**")
-                st.write(user_answer)
-
 else:
-    st.error("Missing required 'Function' column in Excel file.")
+    filtered_df["weight"] = 1.0
 
+# ---------------------------
+# Initialize Session State
+# ---------------------------
+if "quiz_started" not in st.session_state:
+    st.session_state.quiz_started = False
+    st.session_state.current_question = 0
+    st.session_state.score = 0
+    st.session_state.selected_questions = []
+
+# ---------------------------
+# Start Quiz
+# ---------------------------
+if not st.session_state.quiz_started:
+    if st.button("Start Assessment"):
+        questions = filtered_df.to_dict("records")
+
+        if len(questions) < question_count:
+            st.warning("Not enough questions available for selection.")
+        else:
+            selected = random.choices(
+                questions,
+                weights=filtered_df["weight"].tolist(),
+                k=question_count
+            )
+
+            st.session_state.selected_questions = selected
+            st.session_state.quiz_started = True
+            st.session_state.current_question = 0
+            st.session_state.score = 0
+            st.rerun()
+
+# ---------------------------
+# Quiz In Progress
+# ---------------------------
+if st.session_state.quiz_started:
+
+    q_index = st.session_state.current_question
+    total = len(st.session_state.selected_questions)
+
+    if q_index < total:
+        question_data = st.session_state.selected_questions[q_index]
+
+        st.subheader(f"Question {q_index + 1} of {total}")
+        st.write(question_data["Question"])
+
+        user_answer = st.text_input("Your Answer")
+
+        if st.button("Submit Answer"):
+
+            correct_answer = str(question_data["CorrectAnswer"]).strip().lower()
+            submitted_answer = user_answer.strip().lower()
+
+            if submitted_answer == correct_answer:
+                st.success("Correct")
