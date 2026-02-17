@@ -73,6 +73,8 @@ if "quiz_started" not in st.session_state:
     st.session_state.current_question = 0
     st.session_state.score = 0
     st.session_state.selected_questions = []
+if "responses" not in st.session_state:
+    st.session_state.responses = []
 
 # ---------------------------
 # Start Quiz
@@ -109,27 +111,43 @@ if st.session_state.quiz_started:
     
         st.subheader(f"Question {q_index + 1} of {total}")
     
-        # Display Policy Info
-        st.markdown("### Policy Information")
-        st.write(f"**Policy Number:** {question_data.get('PolicyNumber', 'N/A')}")
-        st.write(f"**Policy Name:** {question_data.get('PolicyName', 'N/A')}")
+        st.info(
+            f"Policy {question_data.get('PolicyNumber', 'N/A')} – "
+            f"{question_data.get('PolicyName', 'N/A')}"
+        )
     
-        st.markdown("---")
         st.write(question_data["Question"])
     
-        user_answer = st.text_input("Your Answer")
+        user_answer = st.text_input(
+            "Your Answer",
+            key="answer_input"
+        )
     
         if st.button("Submit Answer"):
     
             correct_answer = str(question_data["Answer"]).strip().lower()
             submitted_answer = user_answer.strip().lower()
     
-            if submitted_answer == correct_answer:
-                st.success("Correct")
+            is_correct = submitted_answer == correct_answer
+    
+            if is_correct:
                 st.session_state.score += 1
-            else:
-                st.error(f"Incorrect. Correct answer: {question_data['Answer']}")
+    
+            # Store response
+            st.session_state.responses.append({
+                "PolicyNumber": question_data.get("PolicyNumber", ""),
+                "PolicyName": question_data.get("PolicyName", ""),
+                "Question": question_data["Question"],
+                "SubmittedAnswer": user_answer,
+                "Answer": question_data["Answer"],
+                "Result": "Correct" if is_correct else "Incorrect"
+            })
+    
+            # Clear answer field
+            st.session_state.answer_input = ""
     
             st.session_state.current_question += 1
             st.rerun()
-
+    
+    
+    
