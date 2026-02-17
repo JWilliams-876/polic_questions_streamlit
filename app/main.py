@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
-import random
 from pathlib import Path
 from rapidfuzz import fuzz
 
 st.set_page_config(page_title="Policy Assessment", layout="wide")
-
 st.title("Policy Knowledge Assessment")
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "policy_questions.xlsx"
@@ -16,6 +14,7 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
+# Normalize column names
 df.columns = df.columns.str.strip().str.replace(" ", "")
 
 # ---------------------------
@@ -46,7 +45,7 @@ def division_match(row_divisions):
     if pd.isna(row_divisions):
         return False
     divisions = [d.strip() for d in str(row_divisions).split(",")]
-    return division in divisions or "All Users" in divisions
+    return division in divisions or "AllUsers" in divisions or "All Users" in divisions
 
 filtered_df = df[df["Division"].apply(division_match)].copy()
 
@@ -56,15 +55,13 @@ if role and "Role" in filtered_df.columns:
         (filtered_df["Role"] == role)
     ]
 
-if "Function" in filtered_df.columns:
-    filtered_df["weight"] = 1.0
-    if supervisor_status == "Supervisor":
-        filtered_df.loc[
-            filtered_df["Function"] == "Supervisor",
-            "weight"
-        ] = 1.6
-else:
-    filtered_df["weight"] = 1.0
+# Apply weighting
+filtered_df["weight"] = 1.0
+if "Function" in filtered_df.columns and supervisor_status == "Supervisor":
+    filtered_df.loc[
+        filtered_df["Function"] == "Supervisor",
+        "weight"
+    ] = 1.6
 
 # ---------------------------
 # Initialize Session State
@@ -72,9 +69,7 @@ else:
 if "quiz_started" not in st.session_state:
     st.session_state.quiz_started = False
     st.session_state.current_question = 0
-    st.session_state.score = 0
     st.session_state.selected_questions = []
-if "responses" not in st.session_state:
     st.session_state.responses = []
 
 # ---------------------------
@@ -82,21 +77,58 @@ if "responses" not in st.session_state:
 # ---------------------------
 if not st.session_state.quiz_started:
     if st.button("Start Assessment"):
-        questions = filtered_df.to_dict("records")
 
-        if len(questions) < question_count:
+        if len(filtered_df) < question_count:
             st.warning("Not enough questions available for selection.")
         else:
-            selected = random.choices(
-                questions,
-                weights=filtered_df["weight"].tolist(),
-                k=question_count
-            )
+            selected_dfs = []
 
-            st.session_state.selected_questions = selected
+            if "Chapter" in filtered_df.columns:
+                chapters = filtered_df["Chapter"].dropna().unique()
+                questions_per_chapter = question_count // len(chapters)
+
+                # Balanced first pass
+                for chapter in chapters:
+                    chapter_df = filtered_df[filtered_df["Chapter"] == chapter]
+                    sample_size = min(len(chapter_df), questions_per_chapter)
+
+                    if sample_size > 0:
+                        sampled = chapter_df.sample(
+                            n=sample_size,
+                            weights="weight",
+                            replace=False
+                        )
+                        selected_dfs.append(sampled)
+
+                combined_df = pd.concat(selected_dfs) if selected_dfs else pd.DataFrame()
+
+                # Fill remaining slots
+                remaining_needed = question_count - len(combined_df)
+
+                if remaining_needed > 0:
+                    remaining_pool = filtered_df.drop(combined_df.index, errors="ignore")
+
+                    additional = remaining_pool.sample(
+                        n=remaining_needed,
+                        weights="weight",
+                        replace=False
+                    )
+                    combined_df = pd.concat([combined_df, additional])
+
+                final_df = combined_df.sample(frac=1).reset_index(drop=True)
+
+            else:
+                # If no Chapter column, simple weighted sampling
+                final_df = filtered_df.sample(
+                    n=question_count,
+                    weights="weight",
+                    replace=False
+                ).reset_index(drop=True)
+
+            st.session_state.selected_questions = final_df.to_dict("records")
             st.session_state.quiz_started = True
             st.session_state.current_question = 0
-            st.session_state.score = 0
+            st.session_state.responses = []
             st.rerun()
 
 # ---------------------------
@@ -109,48 +141,38 @@ if st.session_state.quiz_started:
 
     if q_index < total:
         question_data = st.session_state.selected_questions[q_index]
-    
+
         st.subheader(f"Question {q_index + 1} of {total}")
-    
+
         st.info(
             f"Policy {question_data.get('PolicyNumber', 'N/A')} – "
             f"{question_data.get('PolicyName', 'N/A')}"
         )
-    
-        st.write(question_data["Question"])
-    
-        input_key = f"answer_input_{q_index}"
 
-        user_answer = st.text_input(
-            "Your Answer",
-            key=input_key
-        )
-    
+        st.write(question_data["Question"])
+
+        input_key = f"answer_input_{q_index}"
+        user_answer = st.text_input("Your Answer", key=input_key)
+
         if st.button("Submit Answer"):
-    
+
             correct_answer = str(question_data["Answer"]).strip().lower()
             submitted_answer = user_answer.strip().lower()
-            
-            # Build list of acceptable answers
+
+            # Build accepted answers list
             accepted_answers = [correct_answer]
-            
+
             if "AcceptedAnswers" in question_data and pd.notna(question_data["AcceptedAnswers"]):
                 additional = str(question_data["AcceptedAnswers"]).lower()
                 accepted_answers.extend([a.strip() for a in additional.split(",")])
-            
-            # -----------------------------------
-            # YES/NO Detection
-            # -----------------------------------
+
+            # YES/NO detection
             yes_no_correct = None
-            
             if correct_answer.startswith("yes"):
                 yes_no_correct = "yes"
             elif correct_answer.startswith("no"):
                 yes_no_correct = "no"
-            
-            # -----------------------------------
-            # Final Single is_correct Calculation
-            # -----------------------------------
+
             if yes_no_correct:
                 is_correct = submitted_answer.startswith(yes_no_correct)
             else:
@@ -161,11 +183,7 @@ if st.session_state.quiz_started:
                     ) >= 85
                     for ans in accepted_answers
                 )
-            
-            # Increment score AFTER final determination
-            if is_correct:
-                st.session_state.score += 1
-   
+
             # Store response
             st.session_state.responses.append({
                 "Policy Number": question_data.get("PolicyNumber", ""),
@@ -175,41 +193,30 @@ if st.session_state.quiz_started:
                 "Correct Answer": question_data["Answer"],
                 "Result": "Correct" if is_correct else "Incorrect"
             })
-    
-            # Clear answer field
+
             st.session_state.current_question += 1
             st.rerun()
+
     else:
         st.subheader("Assessment Complete")
-    
-        total_score = st.session_state.score
-        percentage = (total_score / total) * 100
-    
+
+        results_df = pd.DataFrame(st.session_state.responses)
+
+        total_score = int((results_df["Result"] == "Correct").sum())
+        total = len(results_df)
+        percentage = (total_score / total) * 100 if total else 0
+
         st.markdown(f"### Final Score: {total_score} / {total}")
         st.markdown(f"### Score Percentage: {percentage:.1f}%")
-    
+
         st.markdown("---")
         st.subheader("Detailed Results")
-    
-        results_df = pd.DataFrame(st.session_state.responses)
-    
+
         st.dataframe(results_df, use_container_width=True)
-    
+
         if st.button("Restart Assessment"):
             st.session_state.quiz_started = False
             st.session_state.current_question = 0
-            st.session_state.score = 0
             st.session_state.selected_questions = []
             st.session_state.responses = []
             st.rerun()
-
-    
-    
-
-
-
-
-
-
-
-
