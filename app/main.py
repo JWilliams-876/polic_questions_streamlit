@@ -15,6 +15,8 @@ def load_data(path):
 
 df = load_data(DATA_PATH)
 
+df.columns = df.columns.str.strip().str.replace(" ", "")
+
 # ---------------------------
 # Sidebar Configuration
 # ---------------------------
@@ -104,17 +106,29 @@ if st.session_state.quiz_started:
 
     if q_index < total:
         question_data = st.session_state.selected_questions[q_index]
-
+    
         st.subheader(f"Question {q_index + 1} of {total}")
+    
+        # Display Policy Info
+        st.markdown("### Policy Information")
+        st.write(f"**Policy Number:** {question_data.get('PolicyNumber', 'N/A')}")
+        st.write(f"**Policy Name:** {question_data.get('PolicyName', 'N/A')}")
+    
+        st.markdown("---")
         st.write(question_data["Question"])
-
+    
         user_answer = st.text_input("Your Answer")
-
+    
         if st.button("Submit Answer"):
-
-            correct_answer = str(question_data["Answer"]).strip().lower()
+    
+            correct_answer = str(question_data["CorrectAnswer"]).strip().lower()
             submitted_answer = user_answer.strip().lower()
-
+    
             if submitted_answer == correct_answer:
                 st.success("Correct")
-
+                st.session_state.score += 1
+            else:
+                st.error(f"Incorrect. Correct answer: {question_data['CorrectAnswer']}")
+    
+            st.session_state.current_question += 1
+            st.rerun()
