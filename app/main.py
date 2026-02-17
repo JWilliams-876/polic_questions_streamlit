@@ -121,14 +121,15 @@ if st.session_state.quiz_started:
     
         if st.button("Submit Answer"):
     
-            correct_answer = str(question_data["CorrectAnswer"]).strip().lower()
+            correct_answer = str(question_data["Answer"]).strip().lower()
             submitted_answer = user_answer.strip().lower()
     
             if submitted_answer == correct_answer:
                 st.success("Correct")
                 st.session_state.score += 1
             else:
-                st.error(f"Incorrect. Correct answer: {question_data['CorrectAnswer']}")
+                st.error(f"Incorrect. Correct answer: {question_data['Answer']}")
     
             st.session_state.current_question += 1
             st.rerun()
+
