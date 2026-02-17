@@ -148,6 +148,30 @@ if st.session_state.quiz_started:
     
             st.session_state.current_question += 1
             st.rerun()
+    else:
+        st.subheader("Assessment Complete")
+    
+        total_score = st.session_state.score
+        percentage = (total_score / total) * 100
+    
+        st.markdown(f"### Final Score: {total_score} / {total}")
+        st.markdown(f"### Score Percentage: {percentage:.1f}%")
+    
+        st.markdown("---")
+        st.subheader("Detailed Results")
+    
+        results_df = pd.DataFrame(st.session_state.responses)
+    
+        st.dataframe(results_df, use_container_width=True)
+    
+        if st.button("Restart Assessment"):
+            st.session_state.quiz_started = False
+            st.session_state.current_question = 0
+            st.session_state.score = 0
+            st.session_state.selected_questions = []
+            st.session_state.responses = []
+            st.rerun()
+
     
     
-    
+
