@@ -140,7 +140,7 @@ if st.session_state.quiz_started:
             
             # Check if submitted answer matches or is contained
             is_correct = any(
-                fuzz.token_set_ratio(submitted_answer, ans) >= 85
+                fuzz.token_set_ratio(submitted_answer, ans) >= 60
                 for ans in accepted_answers
             )
     
@@ -162,17 +162,17 @@ if st.session_state.quiz_started:
             else:
                 # Fuzzy match for non yes/no questions
                 is_correct = any(
-                    fuzz.token_set_ratio(submitted_answer, ans) >= 85
+                    fuzz.token_set_ratio(submitted_answer, ans) >= 60
                     for ans in accepted_answers
                 )
     
             # Store response
             st.session_state.responses.append({
-                "PolicyNumber": question_data.get("PolicyNumber", ""),
-                "PolicyName": question_data.get("PolicyName", ""),
+                "Policy Number": question_data.get("PolicyNumber", ""),
+                "Policy Name": question_data.get("PolicyName", ""),
                 "Question": question_data["Question"],
-                "SubmittedAnswer": user_answer,
-                "Answer": question_data["Answer"],
+                "Submitted Answer": user_answer,
+                "Correct Answer": question_data["Answer"],
                 "Result": "Correct" if is_correct else "Incorrect"
             })
     
@@ -205,6 +205,7 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
 
