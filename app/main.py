@@ -146,6 +146,25 @@ if st.session_state.quiz_started:
     
             if is_correct:
                 st.session_state.score += 1
+
+            # -----------------------------------
+            # Special YES/NO Handling
+            # -----------------------------------
+            yes_no_correct = None
+            
+            if correct_answer.startswith("yes"):
+                yes_no_correct = "yes"
+            elif correct_answer.startswith("no"):
+                yes_no_correct = "no"
+            
+            if yes_no_correct:
+                is_correct = submitted_answer in ["yes", "y"] if yes_no_correct == "yes" else submitted_answer in ["no", "n"]
+            else:
+                # Fuzzy match for non yes/no questions
+                is_correct = any(
+                    fuzz.token_set_ratio(submitted_answer, ans) >= 85
+                    for ans in accepted_answers
+                )
     
             # Store response
             st.session_state.responses.append({
@@ -186,6 +205,7 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
 
