@@ -75,10 +75,29 @@ if "Function" in filtered_df.columns:
             weights=weights,
             k=1
         )[0]
-
+    
         st.subheader("Generated Question")
         st.write(selected_question)
-    else:
-        st.warning("No questions match your selections.")
+    
+        # ---------------------------
+        # Answer Input Section
+        # ---------------------------
+        st.markdown("---")
+        st.subheader("Your Answer")
+    
+        user_answer = st.text_area(
+            "Type your response below:",
+            height=150
+        )
+    
+        if st.button("Submit Answer"):
+            if user_answer.strip() == "":
+                st.warning("Please enter a response before submitting.")
+            else:
+                st.success("Answer submitted successfully.")
+                st.write("**Recorded Response:**")
+                st.write(user_answer)
+
 else:
     st.error("Missing required 'Function' column in Excel file.")
+
