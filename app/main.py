@@ -140,7 +140,7 @@ if st.session_state.quiz_started:
             
             # Check if submitted answer matches or is contained
             is_correct = any(
-                fuzz.token_set_ratio(submitted_answer, ans) >= 60
+                fuzz.token_set_ratio(submitted_answer, ans) >= 30
                 for ans in accepted_answers
             )
     
@@ -162,7 +162,7 @@ if st.session_state.quiz_started:
             else:
                 # Fuzzy match for non yes/no questions
                 is_correct = any(
-                    fuzz.token_set_ratio(submitted_answer, ans) >= 60
+                    fuzz.token_set_ratio(submitted_answer, ans) >= 30
                     for ans in accepted_answers
                 )
     
@@ -205,6 +205,7 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
 
