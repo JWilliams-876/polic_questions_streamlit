@@ -37,7 +37,7 @@ supervisor_status = st.sidebar.selectbox(
     ["Supervisor", "Non-Supervisor"]
 )
 
-question_count = st.sidebar.slider("Number of Questions", 1, 20, 5)
+question_count = st.sidebar.slider("Number of Questions", 1, 100, 20)
 
 # ---------------------------
 # Filtering Logic
@@ -205,6 +205,7 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
 
