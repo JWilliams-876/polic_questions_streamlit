@@ -1,68 +1,84 @@
 import streamlit as st
 import pandas as pd
 import random
+from pathlib import Path
 
 st.set_page_config(page_title="Policy Question Generator", layout="wide")
 
 st.title("Policy Question Generator")
 
-uploaded_file = st.file_uploader("Upload your policy question Excel file", type=["excel"])
+# ---------------------------
+# Load Excel from repository
+# ---------------------------
+DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "policy_questions.xlsx"
 
-if uploaded_file:
-    df = pd.read_excel(uploaded_file)
+@st.cache_data
+def load_data(path):
+    return pd.read_excel(path)
 
-    st.sidebar.header("User Selection")
+try:
+    df = load_data(DATA_PATH)
+except Exception as e:
+    st.error(f"Error loading Excel file: {e}")
+    st.stop()
 
-    division = st.sidebar.selectbox(
-        "Select Your Division",
-        ["Patrol", "Emergency Management", "Support Services", "Dispatch", "Business Office"]
-    )
+st.sidebar.header("User Selection")
 
-    role = None
-    if division == "Patrol":
-        role = st.sidebar.selectbox("Select Role", ["LEO", "CSO"])
+division = st.sidebar.selectbox(
+    "Select Your Division",
+    ["Patrol", "Emergency Management", "Support Services", "Dispatch", "Business Office"]
+)
 
-    supervisor_status = st.sidebar.selectbox(
-        "Supervisor Status",
-        ["Supervisor", "Non-Supervisor"]
-    )
+role = None
+if division == "Patrol":
+    role = st.sidebar.selectbox("Select Role", ["LEO", "CSO"])
 
-    # Filtering
-    def division_match(row_divisions):
-        if pd.isna(row_divisions):
-            return False
-        divisions = [d.strip() for d in str(row_divisions).split(",")]
-        return division in divisions or "All Users" in divisions
+supervisor_status = st.sidebar.selectbox(
+    "Supervisor Status",
+    ["Supervisor", "Non-Supervisor"]
+)
 
-    filtered_df = df[df["Division"].apply(division_match)]
+# ---------------------------
+# Filtering
+# ---------------------------
+def division_match(row_divisions):
+    if pd.isna(row_divisions):
+        return False
+    divisions = [d.strip() for d in str(row_divisions).split(",")]
+    return division in divisions or "All Users" in divisions
 
-    # Role weighting
-    if role and "Role" in filtered_df.columns:
-        filtered_df = filtered_df[
-            (filtered_df["Role"].isna()) |
-            (filtered_df["Role"] == role)
-        ]
+filtered_df = df[df["Division"].apply(division_match)].copy()
 
-    # Supervisor weighting (60% increase)
-    if "Function" in filtered_df.columns:
-        filtered_df["weight"] = 1.0
+# Role filtering
+if role and "Role" in filtered_df.columns:
+    filtered_df = filtered_df[
+        (filtered_df["Role"].isna()) |
+        (filtered_df["Role"] == role)
+    ]
 
-        if supervisor_status == "Supervisor":
-            filtered_df.loc[
-                filtered_df["Function"] == "Supervisor",
-                "weight"
-            ] = 1.6
+# Supervisor weighting (60% increase)
+if "Function" in filtered_df.columns:
+    filtered_df["weight"] = 1.0
 
-        questions = filtered_df["Question"].tolist()
-        weights = filtered_df["weight"].tolist()
+    if supervisor_status == "Supervisor":
+        filtered_df.loc[
+            filtered_df["Function"] == "Supervisor",
+            "weight"
+        ] = 1.6
 
-        if questions:
-            selected_question = random.choices(questions, weights=weights, k=1)[0]
+    questions = filtered_df["Question"].tolist()
+    weights = filtered_df["weight"].tolist()
 
-            st.subheader("Generated Question")
-            st.write(selected_question)
-        else:
-            st.warning("No questions match your selections.")
+    if questions:
+        selected_question = random.choices(
+            questions,
+            weights=weights,
+            k=1
+        )[0]
 
+        st.subheader("Generated Question")
+        st.write(selected_question)
+    else:
+        st.warning("No questions match your selections.")
 else:
-    st.info("Upload a CSV file to begin.")
+    st.error("Missing required 'Function' column in Excel file.")
