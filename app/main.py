@@ -138,17 +138,8 @@ if st.session_state.quiz_started:
                 additional = str(question_data["AcceptedAnswers"]).lower()
                 accepted_answers.extend([a.strip() for a in additional.split(",")])
             
-            # Check if submitted answer matches or is contained
-            is_correct = any(
-                fuzz.token_set_ratio(submitted_answer, ans) >= 30
-                for ans in accepted_answers
-            )
-    
-            if is_correct:
-                st.session_state.score += 1
-
             # -----------------------------------
-            # Special YES/NO Handling
+            # YES/NO Detection
             # -----------------------------------
             yes_no_correct = None
             
@@ -157,15 +148,24 @@ if st.session_state.quiz_started:
             elif correct_answer.startswith("no"):
                 yes_no_correct = "no"
             
+            # -----------------------------------
+            # Final Single is_correct Calculation
+            # -----------------------------------
             if yes_no_correct:
-                is_correct = submitted_answer in ["yes", "y"] if yes_no_correct == "yes" else submitted_answer in ["no", "n"]
+                is_correct = submitted_answer.startswith(yes_no_correct)
             else:
-                # Fuzzy match for non yes/no questions
                 is_correct = any(
-                    fuzz.token_set_ratio(submitted_answer, ans) >= 30
+                    max(
+                        fuzz.token_set_ratio(submitted_answer, ans),
+                        fuzz.partial_ratio(submitted_answer, ans)
+                    ) >= 85
                     for ans in accepted_answers
                 )
-    
+            
+            # Increment score AFTER final determination
+            if is_correct:
+                st.session_state.score += 1
+   
             # Store response
             st.session_state.responses.append({
                 "Policy Number": question_data.get("PolicyNumber", ""),
@@ -205,6 +205,7 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
 
