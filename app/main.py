@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 from pathlib import Path
+from rapidfuzz import fuzz
 
 st.set_page_config(page_title="Policy Assessment", layout="wide")
 
@@ -124,14 +125,24 @@ if st.session_state.quiz_started:
             "Your Answer",
             key=input_key
         )
-
     
         if st.button("Submit Answer"):
     
             correct_answer = str(question_data["Answer"]).strip().lower()
             submitted_answer = user_answer.strip().lower()
-    
-            is_correct = submitted_answer == correct_answer
+            
+            # Build list of acceptable answers
+            accepted_answers = [correct_answer]
+            
+            if "AcceptedAnswers" in question_data and pd.notna(question_data["AcceptedAnswers"]):
+                additional = str(question_data["AcceptedAnswers"]).lower()
+                accepted_answers.extend([a.strip() for a in additional.split(",")])
+            
+            # Check if submitted answer matches or is contained
+            is_correct = any(
+                fuzz.token_set_ratio(submitted_answer, ans) >= 85
+                for ans in accepted_answers
+            )
     
             if is_correct:
                 st.session_state.score += 1
@@ -175,5 +186,6 @@ if st.session_state.quiz_started:
 
     
     
+
 
 
